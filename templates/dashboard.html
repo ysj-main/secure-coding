@@ -38,6 +38,25 @@
 </ul>
 <p><a href="{{ url_for('new_product') }}">새 상품 등록</a></p>
 
+<!-- 페이징 네비게이션 -->
+<nav style="margin-bottom:20px;">
+  {% if total_pages > 1 %}
+    {% if page > 1 %}
+      <a href="{{ url_for('dashboard', q=search_query, page=page-1) }}">« 이전</a>
+    {% endif %}
+    {% for p in range(1, total_pages+1) %}
+      {% if p == page %}
+        <strong>{{ p }}</strong>
+      {% else %}
+        <a href="{{ url_for('dashboard', q=search_query, page=p) }}">{{ p }}</a>
+      {% endif %}
+    {% endfor %}
+    {% if page < total_pages %}
+      <a href="{{ url_for('dashboard', q=search_query, page=page+1) }}">다음 »</a>
+    {% endif %}
+  {% endif %}
+</nav>
+
 <h3>실시간 채팅</h3>
 <div id="chat">
   <ul id="messages"></ul>

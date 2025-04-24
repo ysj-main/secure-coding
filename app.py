@@ -1,5 +1,6 @@
 import sqlite3
 import uuid
+import os
 from flask import Flask, render_template, request, redirect, url_for, session, flash, g
 from flask_socketio import SocketIO, send, join_room, emit
 from datetime import datetime
@@ -9,6 +10,12 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
 DATABASE = 'market.db'
 socketio = SocketIO(app)
+app.config['UPLOAD_FOLDER'] = os.path.join(app.root_path, 'static', 'uploads')
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
+ALLOWED_EXT = {'png','jpg','jpeg','gif'}
+def allowed_file(fname):
+    return '.' in fname and fname.rsplit('.',1)[1].lower() in ALLOWED_EXT
 
 # 데이터베이스 연결 관리: 요청마다 연결 생성 후 사용, 종료 시 close
 def get_db():
@@ -48,6 +55,17 @@ def init_db():
                 seller_id TEXT NOT NULL
             )
         """)
+
+        # 상품 이미지 테이블
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS product_images (
+                id TEXT PRIMARY KEY,
+                product_id TEXT NOT NULL,
+                filename TEXT NOT NULL,
+                FOREIGN KEY(product_id) REFERENCES product(id) ON DELETE CASCADE
+            )
+        """)
+
         # 신고 테이블 생성
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS report (
@@ -176,36 +194,56 @@ def dashboard():
 
     # 검색어 파라미터
     q = request.args.get('q', '').strip()
+    
+    # 페이징 파라미터 (기본 10개씩, 페이지 1)
+    per_page = 10
+    try:
+        page = int(request.args.get('page', 1))
+        if page < 1:
+            page = 1
+    except ValueError:
+        page = 1
+    offset = (page - 1) * per_page
 
     # 차단되지 않은 상품을 검색어로 필터링하여 조회
+    base_sql = """
+    FROM product
+    WHERE id NOT IN (SELECT product_id FROM blocked_products)
+    """
+    
+    params = ()
     if q:
-        cursor.execute(
-            """
-            SELECT * FROM product
+        base_sql = """
+            FROM product
             WHERE (title LIKE ? OR description LIKE ?)
-              AND id NOT IN (SELECT product_id FROM blocked_products)
-            """,
-            (f"%{q}%", f"%{q}%")
-        )
-    else:
-        cursor.execute(
-            """
-            SELECT * FROM product
-            WHERE id NOT IN (SELECT product_id FROM blocked_products)
-            """
-        )
-    all_products = cursor.fetchall()
+                AND id NOT IN (SELECT product_id FROM blocked_products)
+        """
+        params = (f"%{q}%", f"%{q}%")
+        
+    # 전체 건수 조회
+    cursor.execute(f"SELECT COUNT(*) {base_sql}", params)
+    total = cursor.fetchone()[0]
+    
+    # 실제 페이지 데이터 조회
+    cursor.execute(
+        f"SELECT * {base_sql} ORDER BY title LIMIT ? OFFSET ?",
+        params + (per_page, offset)
+    )
+    products = cursor.fetchall()
 
     # 차단된 상품 ID 목록 (템플릿에서 '차단'/'차단 해제' 판단용)
     cursor.execute("SELECT product_id FROM blocked_products")
     blocked_products = cursor.fetchall()
 
+    total_pages = (total + per_page - 1) // per_page
     return render_template(
         'dashboard.html',
-        products=all_products,
-        blocked_products=blocked_products,
         user=current_user,
-        search_query=q
+        products=products,
+        blocked_products=blocked_products,
+        search_query=q,
+        page=page,
+        total_pages=total_pages
     )
 
 # 프로필 페이지: bio 업데이트 가능
@@ -273,6 +311,17 @@ def new_product():
             "INSERT INTO product (id, title, description, price, seller_id) VALUES (?, ?, ?, ?, ?)",
             (product_id, title, description, price, session['user_id'])
         )
+        # 이미지 업로드
+        for file in request.files.getlist('images'):
+            if file and allowed_file(file.filename):
+                ext = file.filename.rsplit('.',1)[1].lower()
+                img_id = str(uuid.uuid4())
+                filename = f"{img_id}.{ext}"
+                file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+                cursor.execute(
+                    "INSERT INTO product_images (id, product_id, filename) VALUES (?,?,?)",
+                    (img_id, product_id, filename)
+                )
         db.commit()
         flash('상품이 등록되었습니다.')
         return redirect(url_for('dashboard'))
@@ -291,7 +340,113 @@ def view_product(product_id):
     # 판매자 정보 조회
     cursor.execute("SELECT * FROM user WHERE id = ?", (product['seller_id'],))
     seller = cursor.fetchone()
-    return render_template('view_product.html', product=product, seller=seller)
+    
+    # 해당 상품 이미지 조회
+    cursor.execute(
+        "SELECT filename FROM product_images WHERE product_id = ?",
+        (product_id,)
+    )
+    images = cursor.fetchall()
+    return render_template('view_product.html',
+                           product=product,
+                           seller=seller,
+                           images=images)
+
+# 내 상품 목록
+@app.route('/my_products')
+def my_products():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    db = get_db(); cursor = db.cursor()
+    cursor.execute(
+        "SELECT * FROM product WHERE seller_id = ?",
+        (session['user_id'],)
+    )
+    prods = cursor.fetchall()
+    return render_template('my_products.html', products=prods)
+
+# 상품 수정
+@app.route('/product/<product_id>/edit', methods=['GET', 'POST'])
+def edit_product(product_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    db = get_db(); cursor = db.cursor()
+    # 소유자 검증
+    cursor.execute(
+        "SELECT * FROM product WHERE id = ? AND seller_id = ?",
+        (product_id, session['user_id'])
+    )
+    prod = cursor.fetchone()
+    if not prod:
+        flash('권한이 없거나 상품을 찾을 수 없습니다.')
+        return redirect(url_for('my_products'))
+
+    if request.method == 'POST':
+        # 1) 삭제 요청된 이미지 처리
+        for img_id in request.form.getlist('delete_images'):
+            
+            # DB에서 파일명 조회
+            cursor.execute("SELECT filename FROM product_images WHERE id = ?", (img_id,))
+            row = cursor.fetchone()
+            if row:
+                # 파일 시스템에서 삭제
+                try:
+                    os.remove(os.path.join(app.config['UPLOAD_FOLDER'], row['filename']))
+                except OSError:
+                    pass
+                # DB에서 레코드 삭제
+                cursor.execute("DELETE FROM product_images WHERE id = ?", (img_id,))
+                
+        # 2) 상품 기본 필드 업데이트
+        title = request.form['title']
+        description = request.form['description']
+        price = request.form['price']
+        cursor.execute(
+             "UPDATE product SET title=?, description=?, price=? WHERE id=?",
+             (title, description, price, product_id)
+        )
+        # 3) 새로 업로드된 이미지 추가
+        for file in request.files.getlist('images'):
+            if file and allowed_file(file.filename):
+                ext = file.filename.rsplit('.',1)[1].lower()
+                img_id = str(uuid.uuid4())
+                filename = f"{img_id}.{ext}"
+                file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+                cursor.execute(
+                    "INSERT INTO product_images (id, product_id, filename) VALUES (?,?,?)",
+                    (img_id, product_id, filename)
+                )
+        db.commit()
+        flash('상품이 수정되었습니다.')
+        return redirect(url_for('view_product', product_id=product_id))
+    
+    # GET: 기존 이미지 조회
+    cursor.execute(
+        "SELECT id, filename FROM product_images WHERE product_id = ?",
+        (product_id,)
+    )
+    images = cursor.fetchall()
+    return render_template('edit_product.html',
+                           product=prod,
+                           images=images)
+
+# 상품 삭제
+@app.route('/product/<product_id>/delete', methods=['POST'])
+def delete_product(product_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    db = get_db(); cursor = db.cursor()
+    # 소유자 검증 후 삭제
+    cursor.execute(
+        "DELETE FROM product WHERE id = ? AND seller_id = ?",
+        (product_id, session['user_id'])
+    )
+    if cursor.rowcount:
+        db.commit()
+        flash('상품이 삭제되었습니다.')
+    else:
+        flash('삭제 권한이 없거나 상품을 찾을 수 없습니다.')
+    return redirect(url_for('my_products'))
 
 # 신고하기
 @app.route('/report', methods=['GET', 'POST'])
