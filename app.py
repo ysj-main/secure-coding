@@ -713,6 +713,31 @@ def admin_resolve_report(report_id):
     flash('신고가 처리(삭제)되었습니다.')
     return redirect(url_for('admin_reports'))
 
+# 관리자 유저·상품 상태 관리 페이지
+@app.route('/admin/manage', methods=['GET', 'POST'])
+@admin_required
+def admin_manage():
+    db = get_db(); cur = db.cursor()
+    
+    if request.method == 'POST':
+        # 유저 권한 변경 처리
+        user_id = request.form['user_id']
+        role    = request.form['role']  # 'admin' 또는 'user'
+        is_admin = 1 if role == 'admin' else 0
+        cur.execute("UPDATE user SET is_admin = ? WHERE id = ?", (is_admin, user_id))
+        db.commit()
+        flash(f'유저({user_id}) 권한이 "{role}" 로 변경되었습니다.')
+        return redirect(url_for('admin_manage'))
+    
+    # GET: 전체 유저·상품 조회
+    cur.execute("SELECT id, username, is_admin FROM user")
+    users = cur.fetchall()
+    cur.execute("SELECT id, title, price, seller_id FROM product")
+    products = cur.fetchall()
+    return render_template('admin_manage.html',
+                           users=users,
+                           products=products)
+
 # 실시간 채팅: 클라이언트가 메시지를 보내면 전체 브로드캐스트
 @socketio.on('send_message')
 def handle_send_message_event(data):

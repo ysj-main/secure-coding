@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}상태 관리(Admin){% endblock %}
+
+{% block content %}
+  <h2>🛠️ 상태 관리</h2>
+
+  <h3>1. 유저 권한 관리</h3>
+  <table border="1" cellpadding="8" cellspacing="0">
+    <tr>
+      <th>유저 ID</th><th>사용자명</th><th>현재 권한</th><th>변경</th>
+    </tr>
+    {% for u in users %}
+    <tr>
+      <td>{{ u.id }}</td>
+      <td>{{ u.username }}</td>
+      <td>{{ '관리자' if u.is_admin else '일반' }}</td>
+      <td>
+        <form method="post" style="margin:0;">
+          <input type="hidden" name="user_id" value="{{ u.id }}">
+          <select name="role">
+            <option value="user"  {% if not u.is_admin %}selected{% endif %}>일반</option>
+            <option value="admin" {% if u.is_admin     %}selected{% endif %}>관리자</option>
+          </select>
+          <button type="submit">변경</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+
+  <hr/>
+
+  <h3>2. 상품 목록 (ID 확인용)</h3>
+  <table border="1" cellpadding="8" cellspacing="0">
+    <tr>
+      <th>상품 ID</th><th>제목</th><th>가격</th><th>판매자 ID</th>
+    </tr>
+    {% for p in products %}
+    <tr>
+      <td>{{ p.id }}</td>
+      <td>{{ p.title }}</td>
+      <td>₩{{ p.price }}</td>
+      <td>{{ p.seller_id }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+
+  <p><a href="{{ url_for('dashboard') }}">← 대시보드로 돌아가기</a></p>
+{% endblock %}
