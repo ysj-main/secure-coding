@@ -27,3 +27,6 @@ if you want to test on external machine, you can utilize the ngrok to forwarding
 sudo snap install ngrok
 ngrok http 5000
 ```
+
+## Start Develop
+2025-04-24
