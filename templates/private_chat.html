@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+
+{% block title %}1:1 Chat{% endblock %}
+
+{% block content %}
+  <h2>1:1 Chat</h2>
+
+  <!-- 대화 상대 선택 -->
+  <label for="user-select">Chat with:</label>
+  <select id="user-select">
+    {% for u in users %}
+      {% if u.id != current_user_id %}
+        <option value="{{ u.id }}">{{ u.username }}</option>
+      {% endif %}
+    {% endfor %}
+  </select>
+  <button id="start-chat">Start Chat</button>
+
+  <!-- 채팅 창 -->
+  <div id="chat-window"
+       style="border:1px solid #ccc;
+              height:300px;
+              overflow-y:scroll;
+              padding:10px;
+              margin-top:10px;">
+  </div>
+
+  <!-- 메시지 입력 폼 -->
+  <form id="chat-form" style="margin-top:10px;">
+    <input id="message-input"
+           autocomplete="off"
+           placeholder="Type a message..."
+           style="width:80%;" />
+    <button type="submit">Send</button>
+  </form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // ====== 1:1 Chat Client Script ======
+  const socket = io();
+  const senderId = "{{ current_user_id }}";  // 문자열로 취급
+  let receiverId, room;
+
+  document.getElementById('start-chat').addEventListener('click', () => {
+    receiverId = document.getElementById('user-select').value;
+    // ID를 정렬하여 방 이름 생성
+    const ids = [senderId, receiverId].sort();
+    room = `private_${ids[0]}_${ids[1]}`;
+
+    socket.emit('join_private', { sender_id: senderId, receiver_id: receiverId });
+    document.getElementById('chat-window').innerHTML = '';
+  });
+
+  socket.on('status', data => {
+    const p = document.createElement('p');
+    p.innerText = data.msg;
+    document.getElementById('chat-window').appendChild(p);
+  });
+
+  document.getElementById('chat-form').addEventListener('submit', e => {
+    e.preventDefault();
+    const content = document.getElementById('message-input').value.trim();
+    if (!content || !room) return;
+    socket.emit('private_message', { sender_id: senderId, receiver_id: receiverId, content });
+    document.getElementById('message-input').value = '';
+  });
+
+  socket.on('new_private_message', data => {
+    const p = document.createElement('p');
+    p.innerHTML = `
+      <strong>${data.sender_id === senderId ? 'You' : 'Them'}:</strong>
+      ${data.content}
+      <small>${data.timestamp}</small>
+    `;
+    const win = document.getElementById('chat-window');
+    win.appendChild(p);
+    win.scrollTop = win.scrollHeight;
+  });
+</script>
+{% endblock %}

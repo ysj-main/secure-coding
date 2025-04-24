@@ -1,7 +1,9 @@
 import sqlite3
 import uuid
 from flask import Flask, render_template, request, redirect, url_for, session, flash, g
-from flask_socketio import SocketIO, send
+from flask_socketio import SocketIO, send, join_room, emit
+from datetime import datetime
+
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
@@ -53,6 +55,16 @@ def init_db():
                 reporter_id TEXT NOT NULL,
                 target_id TEXT NOT NULL,
                 reason TEXT NOT NULL
+            )
+        """)
+        # 1:1 채팅 메시지 테이블
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS private_messages (
+                id TEXT PRIMARY KEY,
+                sender_id TEXT NOT NULL,
+                receiver_id TEXT NOT NULL,
+                content TEXT NOT NULL,
+                timestamp DATETIME NOT NULL    
             )
         """)
         db.commit()
@@ -199,11 +211,74 @@ def report():
         return redirect(url_for('dashboard'))
     return render_template('report.html')
 
+# 1대1채팅 페이지
+@app.route('/private_chat')
+def private_chat():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute("SELECT id, username FROM user")
+    users = cursor.fetchall()
+    return render_template(
+        'private_chat.html',
+        users=users,
+        current_user_id=session['user_id']
+    )
+
 # 실시간 채팅: 클라이언트가 메시지를 보내면 전체 브로드캐스트
 @socketio.on('send_message')
 def handle_send_message_event(data):
     data['message_id'] = str(uuid.uuid4())
     send(data, broadcast=True)
+
+@socketio.on('join_private')
+def handle_join_private(data):
+    sender = data['sender_id']
+    receiver = data['receiver_id']
+    room = f"private_{min(sender, receiver)}_{max(sender, receiver)}"
+    join_room(room)
+    db = get_db(); cursor = db.cursor()
+    cursor.execute(
+        """
+        SELECT sender_id, receiver_id, content, timestamp
+        FROM private_messages
+        WHERE (sender_id=? AND receiver_id=?)
+           OR (sender_id=? AND receiver_id=?)
+        ORDER BY timestamp
+        """,
+        (sender, receiver, sender, receiver)
+    )
+    for m in cursor.fetchall():
+        emit('new_private_message', {
+            'sender_id': m['sender_id'],
+            'receiver_id': m['receiver_id'],
+            'content': m['content'],
+            'timestamp': m['timestamp']
+        }, room=room)
+    emit('status', {'msg': f'User {sender} entered private chat.'}, room=room)
+
+@socketio.on('private_message')
+def handle_private_message(data):
+    sender = data['sender_id']
+    receiver = data['receiver_id']
+    content = data['content']
+    room = f"private_{min(sender, receiver)}_{max(sender, receiver)}"
+    msg_id = str(uuid.uuid4())
+    ts = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+    db = get_db(); cursor = db.cursor()
+    cursor.execute(
+        "INSERT INTO private_messages (id, sender_id, receiver_id, content, timestamp) "
+        "VALUES (?,?,?,?,?)",
+        (msg_id, sender, receiver, content, ts)
+    )
+    db.commit()
+    emit('new_private_message', {
+        'sender_id': sender,
+        'receiver_id': receiver,
+        'content': content,
+        'timestamp': ts
+    }, room=room)
 
 if __name__ == '__main__':
     init_db()  # 앱 컨텍스트 내에서 테이블 생성
