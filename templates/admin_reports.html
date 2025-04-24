@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}신고 내역 관리(Admin){% endblock %}
+
+{% block content %}
+  <h2>신고 내역 관리</h2>
+  <ul>
+    {% for r in reports %}
+      <li style="margin-bottom:1.5em;">
+        <strong>신고ID:</strong> {{ r.id }}<br>
+        <strong>신고자:</strong> {{ r.reporter_name }} ({{ r.reporter_id }})<br>
+        <strong>대상:</strong>
+        {% if r.target_product %}
+          상품: <a href="{{ url_for('view_product', product_id=r.target_id) }}">{{ r.target_product }}</a>
+        {% else %}
+          사용자: {{ r.target_user or r.target_id }}
+        {% endif %}<br>
+        <strong>사유:</strong> {{ r.reason }}<br>
+        <form method="post"
+              action="{{ url_for('admin_resolve_report', report_id=r.report_id) }}"
+              style="display:inline;"
+              onsubmit="return confirm('이 신고를 처리(삭제)하시겠습니까?');">
+          <button type="submit">신고 처리</button>
+        </form>
+      </li>
+    {% else %}
+      <li>등록된 신고가 없습니다.</li>
+    {% endfor %}
+  </ul>
+  <p><a href="{{ url_for('dashboard') }}">대시보드로 돌아가기</a></p>
+{% endblock %}

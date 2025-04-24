@@ -678,6 +678,41 @@ def admin_delete_product(product_id):
         flash('삭제할 상품을 찾을 수 없습니다.')
     return redirect(url_for('admin_products'))
 
+# 관리자 신고 내역 확인/처리 페이지
+@app.route('/admin/reports')
+@admin_required
+def admin_reports():
+    db = get_db(); cur = db.cursor()
+    cur.execute("""
+        SELECT
+            r.id,
+            r.reporter_id,
+            rep.username   AS reporter_name,
+            r.target_id,
+            tgt.title      AS target_product,
+            tgt_usr.username AS target_user,
+            r.reason,
+            r.id AS report_id
+        FROM report r
+        LEFT JOIN user rep     ON r.reporter_id = rep.id
+        LEFT JOIN product tgt  ON r.target_id   = tgt.id
+        LEFT JOIN user  tgt_usr ON r.target_id  = tgt_usr.id
+        ORDER BY r.id DESC
+    """)
+    reports = cur.fetchall()
+    return render_template('admin_reports.html', reports=reports)
+
+
+# 관리자 신고 처리 (신고 기록 삭제)
+@app.route('/admin/report/<report_id>/resolve', methods=['POST'])
+@admin_required
+def admin_resolve_report(report_id):
+    db = get_db(); cur = db.cursor()
+    cur.execute("DELETE FROM report WHERE id = ?", (report_id,))
+    db.commit()
+    flash('신고가 처리(삭제)되었습니다.')
+    return redirect(url_for('admin_reports'))
+
 # 실시간 채팅: 클라이언트가 메시지를 보내면 전체 브로드캐스트
 @socketio.on('send_message')
 def handle_send_message_event(data):
