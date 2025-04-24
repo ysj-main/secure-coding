@@ -89,6 +89,9 @@
   <nav>
     {% if session.get('user_id') %}
       <a href="{{ url_for('dashboard') }}">대시보드</a>
+      <a href="{{ url_for('manage_users') }}">사용자 관리</a>
+      <a href="{{ url_for('blocked_products_page') }}">차단된 상품</a>
+      <a href="{{ url_for('private_chat') }}">1대1 대화</a>
       <a href="{{ url_for('profile') }}">프로필</a>
       <a href="{{ url_for('report') }}">신고하기</a>
       <a href="{{ url_for('logout') }}">로그아웃</a>

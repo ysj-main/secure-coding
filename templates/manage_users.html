@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+
+{% block title %}사용자 관리{% endblock %}
+
+{% block content %}
+  <h2>사용자 관리</h2>
+  <h3>차단되지 않은 사용자</h3>
+  <ul>
+    {% for u in active_users %}
+      <li>
+        {{ u.username }}
+        <a href="{{ url_for('block_user', user_id=u.id) }}">차단</a>
+      </li>
+    {% else %}
+      <li>차단되지 않은 사용자가 없습니다.</li>
+    {% endfor %}
+  </ul>
+
+  <h3>차단된 사용자</h3>
+  <ul>
+    {% for u in blocked_users %}
+      <li>
+        {{ u.username }}
+        <a href="{{ url_for('unblock_user', user_id=u.id) }}">차단 해제</a>
+      </li>
+    {% else %}
+      <li>차단된 사용자가 없습니다.</li>
+    {% endfor %}
+  </ul>
+  <p><a href="{{ url_for('dashboard') }}">대시보드로 돌아가기</a></p>
+{% endblock %}

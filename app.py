@@ -67,6 +67,19 @@ def init_db():
                 timestamp DATETIME NOT NULL    
             )
         """)
+        # 유저 차단 테이블
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS blocked_users (
+            user_id TEXT PRIMARY KEY,
+            blocked_at DATETIME NOT NULL
+        )""")
+
+        # 상품 차단 테이블
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS blocked_products (
+            product_id TEXT PRIMARY KEY,
+            blocked_at DATETIME NOT NULL
+        )""")
         db.commit()
 
 # 기본 라우트
@@ -123,20 +136,52 @@ def logout():
     flash('로그아웃되었습니다.')
     return redirect(url_for('index'))
 
-# 대시보드: 사용자 정보와 전체 상품 리스트 표시
+# 대시보드: 사용자 정보, 상품 검색 및 차단 관리
 @app.route('/dashboard')
 def dashboard():
     if 'user_id' not in session:
         return redirect(url_for('login'))
+
     db = get_db()
     cursor = db.cursor()
-    # 현재 사용자 조회
+
+    # 현재 로그인한 사용자 정보
     cursor.execute("SELECT * FROM user WHERE id = ?", (session['user_id'],))
     current_user = cursor.fetchone()
-    # 모든 상품 조회
-    cursor.execute("SELECT * FROM product")
+
+    # 검색어 파라미터
+    q = request.args.get('q', '').strip()
+
+    # 차단되지 않은 상품을 검색어로 필터링하여 조회
+    if q:
+        cursor.execute(
+            """
+            SELECT * FROM product
+            WHERE (title LIKE ? OR description LIKE ?)
+              AND id NOT IN (SELECT product_id FROM blocked_products)
+            """,
+            (f"%{q}%", f"%{q}%")
+        )
+    else:
+        cursor.execute(
+            """
+            SELECT * FROM product
+            WHERE id NOT IN (SELECT product_id FROM blocked_products)
+            """
+        )
     all_products = cursor.fetchall()
-    return render_template('dashboard.html', products=all_products, user=current_user)
+
+    # 차단된 상품 ID 목록 (템플릿에서 '차단'/'차단 해제' 판단용)
+    cursor.execute("SELECT product_id FROM blocked_products")
+    blocked_products = cursor.fetchall()
+
+    return render_template(
+        'dashboard.html',
+        products=all_products,
+        blocked_products=blocked_products,
+        user=current_user,
+        search_query=q
+    )
 
 # 프로필 페이지: bio 업데이트 가능
 @app.route('/profile', methods=['GET', 'POST'])
@@ -225,6 +270,92 @@ def private_chat():
         users=users,
         current_user_id=session['user_id']
     )
+
+# 차단된 상품 목록 페이지
+@app.route('/blocked_products')
+def blocked_products_page():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    db = get_db(); cursor = db.cursor()
+    cursor.execute(
+        """
+        SELECT p.id AS product_id, p.title, p.price
+        FROM product p
+        JOIN blocked_products bp ON p.id = bp.product_id
+        """
+    )
+    blocked_list = cursor.fetchall()
+    return render_template('blocked_products.html',
+                           blocked_products=blocked_list)
+
+# ── 사용자 관리 페이지
+@app.route('/manage_users')
+def manage_users():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    db = get_db(); cursor = db.cursor()
+    # 차단되지 않은 사용자
+    cursor.execute(
+        """
+        SELECT * FROM user
+        WHERE id NOT IN (SELECT user_id FROM blocked_users)
+        """
+    )
+    active = cursor.fetchall()
+    # 차단된 사용자
+    cursor.execute(
+        """
+        SELECT u.id, u.username
+        FROM user u
+        JOIN blocked_users bp ON u.id = bp.user_id
+        """
+    )
+    blocked = cursor.fetchall()
+    return render_template('manage_users.html',
+                           active_users=active,
+                           blocked_users=blocked)
+
+
+# 사용자 차단/해제
+@app.route('/block_user/<user_id>')
+def block_user(user_id):
+    db = get_db(); cursor = db.cursor()
+    cursor.execute("""
+        INSERT OR IGNORE INTO blocked_users (user_id, blocked_at)
+        VALUES (?, ?)
+    """, (user_id, datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')))
+    db.commit()
+    flash('사용자가 차단되었습니다.')
+    return redirect(request.referrer or url_for('dashboard'))
+
+@app.route('/unblock_user/<user_id>')
+def unblock_user(user_id):
+    db = get_db(); cursor = db.cursor()
+    cursor.execute("DELETE FROM blocked_users WHERE user_id = ?", (user_id,))
+    db.commit()
+    flash('사용자 차단이 해제되었습니다.')
+    return redirect(request.referrer or url_for('dashboard'))
+
+# 상품 차단
+@app.route('/block_product/<product_id>')
+def block_product(product_id):
+    db = get_db(); cursor = db.cursor()
+    cursor.execute("""
+        INSERT OR IGNORE INTO blocked_products (product_id, blocked_at)
+        VALUES (?, ?)
+    """, (product_id, datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')))
+    db.commit()
+    flash('상품이 차단되었습니다.')
+    return redirect(request.referrer or url_for('dashboard'))
+
+# 상품 차단 해제
+@app.route('/unblock_product/<product_id>')
+def unblock_product(product_id):
+    db = get_db(); cursor = db.cursor()
+    cursor.execute("DELETE FROM blocked_products WHERE product_id = ?", (product_id,))
+    db.commit()
+    flash('상품 차단이 해제되었습니다.')
+    return redirect(request.referrer or url_for('dashboard'))
 
 # 실시간 채팅: 클라이언트가 메시지를 보내면 전체 브로드캐스트
 @socketio.on('send_message')

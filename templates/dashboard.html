@@ -2,12 +2,37 @@
 {% block title %}대시보드{% endblock %}
 {% block content %}
 <h2>대시보드</h2>
+<!-- 상품 검색 폼 -->
+<form method="get" action="{{ url_for('dashboard') }}" style="margin-bottom:20px;">
+  <input
+    type="text"
+    name="q"
+    value="{{ search_query }}"
+    placeholder="상품 검색..."
+    style="width:70%; padding:8px;"
+  />
+  <button type="submit" style="padding:8px 16px;">검색</button>
+</form>
+
 <h3>등록된 상품</h3>
 <ul>
   {% for product in products %}
     <li>
-      <a href="{{ url_for('view_product', product_id=product.id) }}">{{ product.title }}</a>
-      - 가격: {{ product.price }}
+      <a href="{{ url_for('view_product', product_id=product['id']) }}">
+        {{ product['title'] }} (₩{{ product['price'] }})
+      </a>
+      <!-- 차단 여부 체크 -->
+      {% set is_blocked = False %}
+      {% for row in blocked_products %}
+        {% if row['product_id'] == product['id'] %}
+          {% set is_blocked = True %}
+        {% endif %}
+      {% endfor %}
+      {% if is_blocked %}
+        <a href="{{ url_for('unblock_product', product_id=product['id']) }}">차단 해제</a>
+      {% else %}
+        <a href="{{ url_for('block_product', product_id=product['id']) }}">차단</a>
+      {% endif %}
     </li>
   {% endfor %}
 </ul>
