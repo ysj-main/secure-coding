@@ -216,11 +216,43 @@ def profile():
     db = get_db()
     cursor = db.cursor()
     if request.method == 'POST':
-        bio = request.form.get('bio', '')
-        cursor.execute("UPDATE user SET bio = ? WHERE id = ?", (bio, session['user_id']))
-        db.commit()
-        flash('프로필이 업데이트되었습니다.')
+        # 소개글 수정 요청인지 확인
+        if 'bio' in request.form:
+            bio = request.form.get('bio', '')
+            cursor.execute(
+                "UPDATE user SET bio = ? WHERE id = ?",
+                (bio, session['user_id'])
+            )
+            db.commit()
+            flash('소개글이 업데이트되었습니다.')
+        
+        # 비밀번호 변경 요청인지 확인
+        elif 'current_password' in request.form:
+            current = request.form['current_password']
+            new_pw  = request.form['new_password']
+            confirm = request.form['confirm_password']
+        
+            # 현재 비밀번호 확인
+            cursor.execute(
+                "SELECT password FROM user WHERE id = ?",
+                (session['user_id'],)
+            )
+            stored = cursor.fetchone()['password']
+            
+            if current != stored:
+                flash('현재 비밀번호가 올바르지 않습니다.')
+            elif new_pw != confirm:
+                flash('새 비밀번호와 확인이 일치하지 않습니다.')
+            else:
+                cursor.execute(
+                    "UPDATE user SET password = ? WHERE id = ?",
+                    (new_pw, session['user_id'])
+                )
+                db.commit()
+                flash('비밀번호가 변경되었습니다.')
         return redirect(url_for('profile'))
+
+    # 현재 정보 조회
     cursor.execute("SELECT * FROM user WHERE id = ?", (session['user_id'],))
     current_user = cursor.fetchone()
     return render_template('profile.html', user=current_user)
