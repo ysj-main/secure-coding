@@ -80,6 +80,25 @@ def init_db():
             product_id TEXT PRIMARY KEY,
             blocked_at DATETIME NOT NULL
         )""")
+
+        # 잔액 테이블
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS user_balances (
+            user_id TEXT PRIMARY KEY,
+            balance INTEGER NOT NULL
+        )
+        """)
+        
+        # 거래 기록 테이블
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS transactions (
+            id TEXT PRIMARY KEY,
+            sender_id TEXT NOT NULL,
+            receiver_id TEXT NOT NULL,
+            amount INTEGER NOT NULL,
+            timestamp DATETIME NOT NULL
+        )
+        """)
         db.commit()
 
 # 기본 라우트
@@ -105,6 +124,12 @@ def register():
         user_id = str(uuid.uuid4())
         cursor.execute("INSERT INTO user (id, username, password) VALUES (?, ?, ?)",
                        (user_id, username, password))
+        db.commit()
+        # — 회원가입 직후 잔액 테이블 초기화
+        cursor.execute(
+            "INSERT INTO user_balances (user_id, balance) VALUES (?, 0)",
+            (user_id,)
+            )
         db.commit()
         flash('회원가입이 완료되었습니다. 로그인 해주세요.')
         return redirect(url_for('login'))
@@ -356,6 +381,69 @@ def unblock_product(product_id):
     db.commit()
     flash('상품 차단이 해제되었습니다.')
     return redirect(request.referrer or url_for('dashboard'))
+
+# ── 송금 뷰: GET→폼, POST→잔액 이전 및 거래 기록 ──
+@app.route('/transfer', methods=['GET', 'POST'])
+def transfer():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    db = get_db(); cursor = db.cursor()
+    user_id = session['user_id']
+
+    if request.method == 'POST':
+        receiver = request.form['receiver_id']
+        try:
+            amount = int(request.form['amount'])
+        except ValueError:
+            flash('올바른 금액을 입력하세요.')
+            return redirect(url_for('transfer'))
+
+        # 송금 가능 여부 검사
+        cursor.execute(
+            "SELECT balance FROM user_balances WHERE user_id = ?",
+            (user_id,)
+        )
+        sender_balance = cursor.fetchone()['balance']
+        if amount <= 0 or amount > sender_balance:
+            flash('잔액이 부족하거나 올바르지 않은 금액입니다.')
+            return redirect(url_for('transfer'))
+
+        # 잔액 차감・증가
+        cursor.execute(
+            "UPDATE user_balances SET balance = balance - ? WHERE user_id = ?",
+            (amount, user_id)
+        )
+        cursor.execute(
+            "UPDATE user_balances SET balance = balance + ? WHERE user_id = ?",
+            (amount, receiver)
+        )
+        # 거래 기록
+        tx_id = str(uuid.uuid4())
+        ts = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+        cursor.execute(
+            "INSERT INTO transactions (id, sender_id, receiver_id, amount, timestamp) VALUES (?,?,?,?,?)",
+            (tx_id, user_id, receiver, amount, ts)
+        )
+        db.commit()
+        flash(f'{amount}원 송금 완료!')
+        return redirect(url_for('dashboard'))
+
+    # 송금 폼 준비
+    cursor.execute(
+        "SELECT id, username FROM user WHERE id != ?",
+        (user_id,)
+    )
+    users = cursor.fetchall()
+    cursor.execute(
+        "SELECT balance FROM user_balances WHERE user_id = ?",
+        (user_id,)
+    )
+    balance = cursor.fetchone()['balance']
+    return render_template(
+        'transfer.html',
+        users=users,
+        balance=balance
+    )
 
 # 실시간 채팅: 클라이언트가 메시지를 보내면 전체 브로드캐스트
 @socketio.on('send_message')

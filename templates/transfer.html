@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block title %}송금하기{% endblock %}
+
+{% block content %}
+  <h2>송금하기</h2>
+  <p>내 잔액: {{ balance }}원</p>
+  <form method="post">
+    <label for="receiver_id">받는 사람:</label>
+    <select name="receiver_id" id="receiver_id">
+      {% for u in users %}
+        <option value="{{ u.id }}">{{ u.username }}</option>
+      {% endfor %}
+    </select>
+    <br>
+    <label for="amount">금액 (원):</label>
+    <input type="number" name="amount" id="amount" min="1" required>
+    <button type="submit">송금</button>
+  </form>
+  <p><a href="{{ url_for('dashboard') }}">대시보드로 돌아가기</a></p>
+{% endblock %}
