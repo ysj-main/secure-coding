@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}관리자 상품 관리{% endblock %}
+{% block content %}
+  <h2>전체 상품 관리 (Admin)</h2>
+  <ul>
+    {% for p in products %}
+      <li>
+        <a href="{{ url_for('view_product', product_id=p['id']) }}">
+          {{ p['title'] }} (₩{{ p['price'] }})
+        </a>
+        <form method="post"
+              action="{{ url_for('admin_delete_product', product_id=p['id']) }}"
+              style="display:inline;"
+              onsubmit="return confirm('정말 삭제하시겠습니까?');">
+          <button type="submit">강제 삭제</button>
+        </form>
+      </li>
+    {% else %}
+      <li>등록된 상품이 없습니다.</li>
+    {% endfor %}
+  </ul>
+  <p><a href="{{ url_for('dashboard') }}">대시보드로 돌아가기</a></p>
+{% endblock %}

@@ -1,7 +1,8 @@
 import sqlite3
 import uuid
 import os
-from flask import Flask, render_template, request, redirect, url_for, session, flash, g
+from functools import wraps
+from flask import Flask, render_template, request, redirect, url_for, session, flash, g, abort
 from flask_socketio import SocketIO, send, join_room, emit
 from datetime import datetime
 
@@ -25,6 +26,24 @@ def get_db():
         db.row_factory = sqlite3.Row  # 결과를 dict처럼 사용하기 위함
     return db
 
+@app.before_request
+# 유저 로드
+def load_current_user():
+    g.current_user = None
+    if 'user_id' in session:
+        db = get_db(); cur = db.cursor()
+        cur.execute("SELECT * FROM user WHERE id = ?", (session['user_id'],))
+        g.current_user = cur.fetchone()
+
+# 관리자 권한 확인
+def admin_required(f):
+    @wraps(f)
+    def wrapped(*args, **kwargs):
+        if not g.current_user or not g.current_user['is_admin']:
+            abort(403)
+        return f(*args, **kwargs)
+    return wrapped
+
 @app.teardown_appcontext
 def close_connection(exception):
     db = getattr(g, '_database', None)
@@ -42,7 +61,8 @@ def init_db():
                 id TEXT PRIMARY KEY,
                 username TEXT UNIQUE NOT NULL,
                 password TEXT NOT NULL,
-                bio TEXT
+                bio TEXT,
+                is_admin INTEGER NOT NULL DEFAULT 0
             )
         """)
         # 상품 테이블 생성
@@ -125,6 +145,10 @@ def index():
     if 'user_id' in session:
         return redirect(url_for('dashboard'))
     return render_template('index.html')
+
+@app.context_processor
+def inject_user():
+    return dict(current_user=g.get('current_user'))
 
 # 회원가입
 @app.route('/register', methods=['GET', 'POST'])
@@ -631,6 +655,28 @@ def transfer():
         users=users,
         balance=balance
     )
+
+# 관리자 전체 상품 관리 페이지
+@app.route('/admin/products')
+@admin_required
+def admin_products():
+    db = get_db(); cur = db.cursor()
+    cur.execute("SELECT * FROM product")
+    products = cur.fetchall()
+    return render_template('admin_products.html', products=products)
+
+# 관리자 강제 상품 삭제
+@app.route('/admin/product/<product_id>/delete', methods=['POST'])
+@admin_required
+def admin_delete_product(product_id):
+    db = get_db(); cur = db.cursor()
+    cur.execute("DELETE FROM product WHERE id = ?", (product_id,))
+    if cur.rowcount:
+        db.commit()
+        flash('상품이 삭제되었습니다. (관리자)')
+    else:
+        flash('삭제할 상품을 찾을 수 없습니다.')
+    return redirect(url_for('admin_products'))
 
 # 실시간 채팅: 클라이언트가 메시지를 보내면 전체 브로드캐스트
 @socketio.on('send_message')
