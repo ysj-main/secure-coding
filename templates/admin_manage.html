@@ -16,6 +16,7 @@
       <td>{{ '관리자' if u.is_admin else '일반' }}</td>
       <td>
         <form method="post" style="margin:0;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <input type="hidden" name="user_id" value="{{ u.id }}">
           <select name="role">
             <option value="user"  {% if not u.is_admin %}selected{% endif %}>일반</option>

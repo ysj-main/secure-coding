@@ -19,6 +19,7 @@
               action="{{ url_for('admin_resolve_report', report_id=r.report_id) }}"
               style="display:inline;"
               onsubmit="return confirm('이 신고를 처리(삭제)하시겠습니까?');">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button type="submit">신고 처리</button>
         </form>
       </li>

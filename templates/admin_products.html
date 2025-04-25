@@ -12,6 +12,7 @@
               action="{{ url_for('admin_delete_product', product_id=p['id']) }}"
               style="display:inline;"
               onsubmit="return confirm('정말 삭제하시겠습니까?');">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button type="submit">강제 삭제</button>
         </form>
       </li>

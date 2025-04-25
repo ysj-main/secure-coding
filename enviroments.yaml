@@ -8,3 +8,4 @@ dependencies:
     - flask 
     - flask-socketio
     - flask-sqlalchemy
+    - flask-wtf

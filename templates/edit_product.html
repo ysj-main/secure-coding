@@ -5,6 +5,7 @@
 {% block content %}
 <h2>상품 수정</h2>
 <form method="post" enctype="multipart/form-data">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <label for="title">제목</label><br>
   <input type="text" name="title" id="title" value="{{ product['title'] }}" required><br>
   <label for="description">설명</label><br>

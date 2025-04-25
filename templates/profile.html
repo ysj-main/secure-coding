@@ -6,6 +6,7 @@
 
 <!-- 소개글 수정 폼 -->
 <form method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <h3>소개글 수정</h3>
   <textarea name="bio" rows="4" cols="50">{{ user.bio or '' }}</textarea><br>
   <button type="submit">프로필 업데이트</button>
@@ -16,6 +17,7 @@
 <!-- 비밀번호 변경 폼 -->
 <h3>비밀번호 변경</h3>
 <form method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <label for="current_password">현재 비밀번호</label><br>
   <input type="password" name="current_password" id="current_password" required><br>
   <label for="new_password">새 비밀번호</label><br>

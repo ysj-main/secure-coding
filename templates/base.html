@@ -2,124 +2,74 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}My Market{% endblock %}</title>
-  <!-- Socket.IO 클라이언트 라이브러리 -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
-  <style>
-    /* Notion 스타일 미니멀 디자인 */
-    body {
-      background-color: #F7F7F7;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      margin: 0;
-      padding: 0;
-      color: #333;
-    }
-    nav {
-      background-color: #fff;
-      padding: 20px;
-      border-bottom: 1px solid #e0e0e0;
-    }
-    nav a {
-      text-decoration: none;
-      color: #555;
-      margin-right: 15px;
-      font-weight: 500;
-    }
-    .container {
-      max-width: 800px;
-      margin: 40px auto;
-      background-color: #fff;
-      padding: 40px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-      border-radius: 8px;
-    }
-    h1, h2, h3 {
-      font-weight: 600;
-      margin-bottom: 20px;
-    }
-    input, textarea, button {
-      width: 100%;
-      padding: 10px;
-      margin-bottom: 20px;
-      border: 1px solid #e0e0e0;
-      border-radius: 4px;
-      font-size: 16px;
-    }
-    button {
-      background-color: #007AFF;
-      color: #fff;
-      border: none;
-      cursor: pointer;
-      transition: background-color 0.2s;
-    }
-    button:hover {
-      background-color: #005BB5;
-    }
-    ul {
-      list-style: none;
-      padding: 0;
-    }
-    li {
-      padding: 10px;
-      border-bottom: 1px solid #e0e0e0;
-    }
-    .flash {
-      background-color: #FFECB3;
-      padding: 10px;
-      border: 1px solid #FFB74D;
-      border-radius: 4px;
-      margin-bottom: 20px;
-    }
-    /* 채팅 영역 스타일 */
-    #chat {
-      margin-top: 40px;
-    }
-    #messages {
-      height: 200px;
-      overflow-y: auto;
-      border: 1px solid #e0e0e0;
-      padding: 10px;
-      border-radius: 4px;
-      margin-bottom: 10px;
-      background-color: #fafafa;
-    }
-  </style>
+  <!-- Bootstrap5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
-  <nav>
-    {% if session.get('user_id') %}
-      <a href="{{ url_for('dashboard') }}">대시보드</a>
-      <a href="{{ url_for('my_products') }}">내 상품</a>
-      <a href="{{ url_for('manage_users') }}">사용자 관리</a>
-      <a href="{{ url_for('blocked_products_page') }}">차단된 상품</a>
-      <a href="{{ url_for('private_chat') }}">1대1 대화</a>
-      <a href="{{ url_for('transfer') }}">송금하기</a>
-      <a href="{{ url_for('profile') }}">프로필</a>
-      <a href="{{ url_for('report') }}">신고하기</a>
-      <a href="{{ url_for('logout') }}">로그아웃</a>
-      {% if current_user and current_user['is_admin'] %}
-        <a href="{{ url_for('admin_products') }}">상품 관리(관리자)</a>
-        <a href="{{ url_for('admin_reports') }}">신고 관리(관리자)</a>
-        <a href="{{ url_for('admin_manage') }}">상태 관리(관리자)</a>
-      {% endif %}
-    {% else %}
-      <a href="{{ url_for('login') }}">로그인</a>
-      <a href="{{ url_for('register') }}">회원가입</a>
-    {% endif %}
+  <!-- Navbar -->
+  <nav class="navbar navbar-expand-lg navbar-light bg-light">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="{{ url_for('dashboard') }}">My Market</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-controls="mainNav" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="mainNav">
+        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+          {% if current_user %}
+          <!-- 거래 메뉴 -->
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" id="tradeMenu" role="button" data-bs-toggle="dropdown">거래</a>
+            <ul class="dropdown-menu" aria-labelledby="tradeMenu">
+              <li><a class="dropdown-item" href="{{ url_for('dashboard') }}">상품목록</a></li>
+              <li><a class="dropdown-item" href="{{ url_for('my_products') }}">내 상품</a></li>
+              <li><a class="dropdown-item" href="{{ url_for('new_product') }}">상품 등록</a></li>
+            </ul>
+          </li>
+          <!-- 관리 메뉴 -->
+          {% if current_user.is_admin %}
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" id="adminMenu" role="button" data-bs-toggle="dropdown">관리자</a>
+            <ul class="dropdown-menu" aria-labelledby="adminMenu">
+              <li><a class="dropdown-item" href="{{ url_for('admin_products') }}">상품 관리</a></li>
+              <li><a class="dropdown-item" href="{{ url_for('admin_reports') }}">신고 관리</a></li>
+              <li><a class="dropdown-item" href="{{ url_for('admin_manage') }}">상태 관리</a></li>
+            </ul>
+          </li>
+          {% endif %}
+          <!-- 유저 메뉴 -->
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" id="userMenu" role="button" data-bs-toggle="dropdown">{{ current_user.username }}</a>
+            <ul class="dropdown-menu" aria-labelledby="userMenu">
+              <li><a class="dropdown-item" href="{{ url_for('profile') }}">프로필</a></li>
+              <li><a class="dropdown-item" href="{{ url_for('transfer') }}">송금하기</a></li>
+              <li><hr class="dropdown-divider"></li>
+              <li><a class="dropdown-item" href="{{ url_for('logout') }}">로그아웃</a></li>
+            </ul>
+          </li>
+          {% else %}
+          <li class="nav-item"><a class="nav-link" href="{{ url_for('login') }}">로그인</a></li>
+          <li class="nav-item"><a class="nav-link" href="{{ url_for('register') }}">회원가입</a></li>
+          {% endif %}
+        </ul>
+      </div>
+    </div>
   </nav>
-  <div class="container">
+
+  <div class="container mt-4">
     {% with messages = get_flashed_messages() %}
       {% if messages %}
-        <ul>
-          {% for message in messages %}
-            <li class="flash">{{ message }}</li>
-          {% endfor %}
-        </ul>
+        <div class="alert alert-warning">
+          {% for msg in messages %} <div>{{ msg }}</div> {% endfor %}
+        </div>
       {% endif %}
     {% endwith %}
     {% block content %}{% endblock %}
   </div>
 
+  <!-- Bootstrap5 JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>
