@@ -1,18 +1,23 @@
-{% extends 'base.html' %}
-
-{% block title %}차단된 상품 목록{% endblock %}
-
+<!-- templates/blocked_products.html -->
+{% extends "base.html" %}
+{% block title %}차단된 상품{% endblock %}
 {% block content %}
-  <h2>차단된 상품 목록</h2>
-  <ul>
+<h2 class="mb-4">차단된 상품 목록</h2>
+<table class="table table-striped">
+  <thead><tr><th>제목</th><th>가격</th><th>액션</th></tr></thead>
+  <tbody>
     {% for p in blocked_products %}
-      <li>
-        {{ p.title }} (₩{{ p.price }})
-        <a href="{{ url_for('unblock_product', product_id=p.product_id) }}">차단 해제</a>
-      </li>
+    <tr>
+      <td>{{ p.title }}</td>
+      <td>₩{{ p.price }}</td>
+      <td>
+        <a href="{{ url_for('unblock_product',product_id=p.product_id) }}"
+           class="btn btn-warning btn-sm">차단 해제</a>
+      </td>
+    </tr>
     {% else %}
-      <li>차단된 상품이 없습니다.</li>
+    <tr><td colspan="3" class="text-center">차단된 상품이 없습니다.</td></tr>
     {% endfor %}
-  </ul>
-  <p><a href="{{ url_for('dashboard') }}">대시보드로 돌아가기</a></p>
+  </tbody>
+</table>
 {% endblock %}

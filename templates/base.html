@@ -1,3 +1,4 @@
+<!-- templates/base.html -->
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -12,25 +13,38 @@
   <nav class="navbar navbar-expand-lg navbar-light bg-light">
     <div class="container-fluid">
       <a class="navbar-brand" href="{{ url_for('dashboard') }}">My Market</a>
-      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-controls="mainNav" aria-expanded="false" aria-label="Toggle navigation">
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"
+              aria-controls="mainNav" aria-expanded="false" aria-label="Toggle navigation">
         <span class="navbar-toggler-icon"></span>
       </button>
       <div class="collapse navbar-collapse" id="mainNav">
         <ul class="navbar-nav me-auto mb-2 mb-lg-0">
           {% if current_user %}
-          <!-- 거래 메뉴 -->
+          <!-- 거래 -->
           <li class="nav-item dropdown">
-            <a class="nav-link dropdown-toggle" href="#" id="tradeMenu" role="button" data-bs-toggle="dropdown">거래</a>
+            <a class="nav-link dropdown-toggle" href="#" id="tradeMenu" role="button" data-bs-toggle="dropdown"
+               aria-expanded="false">거래</a>
             <ul class="dropdown-menu" aria-labelledby="tradeMenu">
               <li><a class="dropdown-item" href="{{ url_for('dashboard') }}">상품목록</a></li>
               <li><a class="dropdown-item" href="{{ url_for('my_products') }}">내 상품</a></li>
               <li><a class="dropdown-item" href="{{ url_for('new_product') }}">상품 등록</a></li>
+              <li><a class="dropdown-item" href="{{ url_for('blocked_products_page') }}">차단된 상품</a></li>
             </ul>
           </li>
-          <!-- 관리 메뉴 -->
+          <!-- 채팅 -->
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" id="chatMenu" role="button" data-bs-toggle="dropdown"
+               aria-expanded="false">채팅</a>
+            <ul class="dropdown-menu" aria-labelledby="chatMenu">
+              <li><a class="dropdown-item" href="{{ url_for('dashboard') }}#chat">실시간 채팅</a></li>
+              <li><a class="dropdown-item" href="{{ url_for('private_chat') }}">1:1 채팅</a></li>
+            </ul>
+          </li>
+          <!-- 관리자 -->
           {% if current_user.is_admin %}
           <li class="nav-item dropdown">
-            <a class="nav-link dropdown-toggle" href="#" id="adminMenu" role="button" data-bs-toggle="dropdown">관리자</a>
+            <a class="nav-link dropdown-toggle" href="#" id="adminMenu" role="button" data-bs-toggle="dropdown"
+               aria-expanded="false">관리자</a>
             <ul class="dropdown-menu" aria-labelledby="adminMenu">
               <li><a class="dropdown-item" href="{{ url_for('admin_products') }}">상품 관리</a></li>
               <li><a class="dropdown-item" href="{{ url_for('admin_reports') }}">신고 관리</a></li>
@@ -38,14 +52,16 @@
             </ul>
           </li>
           {% endif %}
-          <!-- 유저 메뉴 -->
+          <!-- 유저 -->
           <li class="nav-item dropdown">
-            <a class="nav-link dropdown-toggle" href="#" id="userMenu" role="button" data-bs-toggle="dropdown">{{ current_user.username }}</a>
+            <a class="nav-link dropdown-toggle" href="#" id="userMenu" role="button" data-bs-toggle="dropdown"
+               aria-expanded="false">{{ current_user.username }}</a>
             <ul class="dropdown-menu" aria-labelledby="userMenu">
               <li><a class="dropdown-item" href="{{ url_for('profile') }}">프로필</a></li>
               <li><a class="dropdown-item" href="{{ url_for('transfer') }}">송금하기</a></li>
+              <li><a class="dropdown-item" href="{{ url_for('report') }}">신고하기</a></li>
               <li><hr class="dropdown-divider"></li>
-              <li><a class="dropdown-item" href="{{ url_for('logout') }}">로그아웃</a></li>
+              <li><a class="dropdown-item text-danger" href="{{ url_for('logout') }}">로그아웃</a></li>
             </ul>
           </li>
           {% else %}
@@ -60,16 +76,43 @@
   <div class="container mt-4">
     {% with messages = get_flashed_messages() %}
       {% if messages %}
-        <div class="alert alert-warning">
-          {% for msg in messages %} <div>{{ msg }}</div> {% endfor %}
+        <div class="alert alert-warning" role="alert">
+          {% for msg in messages %}
+            <div>{{ msg }}</div>
+          {% endfor %}
         </div>
       {% endif %}
     {% endwith %}
+
     {% block content %}{% endblock %}
   </div>
 
   <!-- Bootstrap5 JS -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-  {% block scripts %}{% endblock %}
+  <!-- Socket.IO client -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.1/socket.io.min.js"></script>
+  {% block scripts %}
+  <script>
+    var socket = io();
+    socket.on('connect', function() { console.log("채팅 서버 연결"); });
+    socket.on('message', function(data) {
+      var li = document.createElement('li');
+      li.className = 'list-group-item';
+      li.textContent = data.username + ": " + data.message;
+      document.getElementById('messages').appendChild(li);
+      document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+    });
+    function sendMessage() {
+      var input = document.getElementById('chat_input');
+      if (!input.value) return;
+      // 로그인 상태가 아닐 땐 빈 문자열로 방어
+      socket.emit('send_message',{
+        username: "{{ current_user.username if current_user else '' }}",
+        message: input.value
+      });
+      input.value = "";
+    }
+  </script>
+  {% endblock %}
 </body>
 </html>

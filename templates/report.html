@@ -1,12 +1,22 @@
+<!-- templates/report.html -->
 {% extends "base.html" %}
 {% block title %}신고하기{% endblock %}
 {% block content %}
-<h2>신고하기</h2>
-<form method="post">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-  신고 대상 (사용자ID 또는 상품ID): <input type="text" name="target_id" required><br>
-  신고 사유: <br>
-  <textarea name="reason" rows="4" cols="50" required></textarea><br>
-  <button type="submit">신고 접수</button>
-</form>
+<div class="card mx-auto" style="max-width:500px;">
+  <div class="card-body">
+    <h3 class="card-title mb-4">신고하기</h3>
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="mb-3">
+        <label class="form-label">대상 (사용자ID 또는 상품ID)</label>
+        <input type="text" name="target_id" class="form-control" required>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">사유</label>
+        <textarea name="reason" class="form-control" rows="4" required></textarea>
+      </div>
+      <button class="btn btn-danger">신고 접수</button>
+    </form>
+  </div>
+</div>
 {% endblock %}

@@ -1,21 +1,25 @@
-{% extends 'base.html' %}
+<!-- templates/transfer.html -->
+{% extends "base.html" %}
 {% block title %}송금하기{% endblock %}
-
 {% block content %}
-  <h2>송금하기</h2>
-  <p>내 잔액: {{ balance }}원</p>
-  <form method="post">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <label for="receiver_id">받는 사람:</label>
-    <select name="receiver_id" id="receiver_id">
-      {% for u in users %}
-        <option value="{{ u.id }}">{{ u.username }}</option>
-      {% endfor %}
-    </select>
-    <br>
-    <label for="amount">금액 (원):</label>
-    <input type="number" name="amount" id="amount" min="1" required>
-    <button type="submit">송금</button>
-  </form>
-  <p><a href="{{ url_for('dashboard') }}">대시보드로 돌아가기</a></p>
+<div class="card mx-auto" style="max-width:500px;">
+  <div class="card-body">
+    <h3 class="card-title mb-4">송금하기</h3>
+    <p>내 잔액: <strong>{{ balance }}원</strong></p>
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="mb-3">
+        <label class="form-label">받는 사람</label>
+        <select name="receiver_id" class="form-select">
+          {% for u in users %}<option value="{{ u.id }}">{{ u.username }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">금액</label>
+        <input type="number" name="amount" class="form-control" min="1" required>
+      </div>
+      <button class="btn btn-primary">송금</button>
+    </form>
+  </div>
+</div>
 {% endblock %}

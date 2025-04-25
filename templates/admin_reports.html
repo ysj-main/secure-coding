@@ -1,31 +1,36 @@
+<!-- templates/admin_reports.html -->
 {% extends "base.html" %}
-{% block title %}신고 내역 관리(Admin){% endblock %}
-
+{% block title %}신고 내역 관리{% endblock %}
 {% block content %}
-  <h2>신고 내역 관리</h2>
-  <ul>
+<h2 class="mb-4">신고 내역 관리</h2>
+<table class="table table-bordered">
+  <thead>
+    <tr><th>신고ID</th><th>신고자</th><th>대상</th><th>사유</th><th>액션</th></tr>
+  </thead>
+  <tbody>
     {% for r in reports %}
-      <li style="margin-bottom:1.5em;">
-        <strong>신고ID:</strong> {{ r.id }}<br>
-        <strong>신고자:</strong> {{ r.reporter_name }} ({{ r.reporter_id }})<br>
-        <strong>대상:</strong>
+    <tr>
+      <td>{{ r.id }}</td>
+      <td>{{ r.reporter_name }}({{ r.reporter_id }})</td>
+      <td>
         {% if r.target_product %}
-          상품: <a href="{{ url_for('view_product', product_id=r.target_id) }}">{{ r.target_product }}</a>
+          상품 <a href="{{ url_for('view_product',product_id=r.target_id) }}">{{ r.target_product }}</a>
         {% else %}
-          사용자: {{ r.target_user or r.target_id }}
-        {% endif %}<br>
-        <strong>사유:</strong> {{ r.reason }}<br>
-        <form method="post"
-              action="{{ url_for('admin_resolve_report', report_id=r.report_id) }}"
-              style="display:inline;"
-              onsubmit="return confirm('이 신고를 처리(삭제)하시겠습니까?');">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <button type="submit">신고 처리</button>
+          사용자 {{ r.target_user or r.target_id }}
+        {% endif %}
+      </td>
+      <td>{{ r.reason }}</td>
+      <td>
+        <form method="post" action="{{ url_for('admin_resolve_report',report_id=r.id) }}"
+              onsubmit="return confirm('신고 처리를 진행하시겠습니까?');">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn btn-success btn-sm">처리</button>
         </form>
-      </li>
+      </td>
+    </tr>
     {% else %}
-      <li>등록된 신고가 없습니다.</li>
+    <tr><td colspan="5" class="text-center">등록된 신고가 없습니다.</td></tr>
     {% endfor %}
-  </ul>
-  <p><a href="{{ url_for('dashboard') }}">대시보드로 돌아가기</a></p>
+  </tbody>
+</table>
 {% endblock %}

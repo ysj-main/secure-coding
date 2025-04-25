@@ -1,29 +1,37 @@
+<!-- templates/profile.html -->
 {% extends "base.html" %}
 {% block title %}프로필{% endblock %}
 {% block content %}
-<h2>프로필 관리</h2>
-<p>사용자명: {{ user.username }}</p>
-
-<!-- 소개글 수정 폼 -->
-<form method="post">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-  <h3>소개글 수정</h3>
-  <textarea name="bio" rows="4" cols="50">{{ user.bio or '' }}</textarea><br>
-  <button type="submit">프로필 업데이트</button>
-</form>
-
-<hr/>
-
-<!-- 비밀번호 변경 폼 -->
-<h3>비밀번호 변경</h3>
-<form method="post">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-  <label for="current_password">현재 비밀번호</label><br>
-  <input type="password" name="current_password" id="current_password" required><br>
-  <label for="new_password">새 비밀번호</label><br>
-  <input type="password" name="new_password" id="new_password" required><br>
-  <label for="confirm_password">새 비밀번호 확인</label><br>
-  <input type="password" name="confirm_password" id="confirm_password" required><br>
-  <button type="submit">비밀번호 변경</button>
-</form>
+<div class="row">
+  <div class="col-md-6">
+    <h3>소개글 수정</h3>
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="mb-3">
+        <label class="form-label">소개글</label>
+        <textarea name="bio" class="form-control" rows="4">{{ user.bio or '' }}</textarea>
+      </div>
+      <button class="btn btn-primary">프로필 업데이트</button>
+    </form>
+  </div>
+  <div class="col-md-6">
+    <h3>비밀번호 변경</h3>
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="mb-3">
+        <label class="form-label">현재 비밀번호</label>
+        <input type="password" name="current_password" class="form-control" required>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">새 비밀번호</label>
+        <input type="password" name="new_password" class="form-control" required>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">확인 비밀번호</label>
+        <input type="password" name="confirm_password" class="form-control" required>
+      </div>
+      <button class="btn btn-primary">비밀번호 변경</button>
+    </form>
+  </div>
+</div>
 {% endblock %}

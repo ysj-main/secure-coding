@@ -1,18 +1,25 @@
+<!-- templates/my_products.html -->
 {% extends "base.html" %}
-{% block title %}내 상품 목록{% endblock %}
+{% block title %}내 상품{% endblock %}
 {% block content %}
-  <h2>내가 등록한 상품</h2>
-  <ul>
+<h2 class="mb-4">내가 등록한 상품</h2>
+<table class="table table-striped">
+  <thead>
+    <tr><th>제목</th><th>가격</th><th>액션</th></tr>
+  </thead>
+  <tbody>
     {% for p in products %}
-    <li>
-      <a href="{{ url_for('view_product', product_id=p['id']) }}">
-        {{ p['title'] }} (₩{{ p['price'] }})
-      </a>
-    </li>
+    <tr>
+      <td>{{ p['title'] }}</td>
+      <td>₩{{ p['price'] }}</td>
+      <td>
+        <a href="{{ url_for('view_product',product_id=p['id']) }}" class="btn btn-sm btn-info">상세</a>
+      </td>
+    </tr>
     {% else %}
-    <li>등록된 상품이 없습니다.</li>
+    <tr><td colspan="3" class="text-center">등록된 상품이 없습니다.</td></tr>
     {% endfor %}
-  </ul>
-  <p><a href="{{ url_for('new_product') }}">새 상품 등록</a></p>
-  <p><a href="{{ url_for('dashboard') }}">대시보드로 돌아가기</a></p>
+  </tbody>
+</table>
+<a href="{{ url_for('new_product') }}" class="btn btn-primary">새 상품 등록</a>
 {% endblock %}

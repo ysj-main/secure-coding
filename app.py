@@ -480,8 +480,6 @@ def report():
     if request.method == 'POST':
         target_id = request.form['target_id']
         reason = request.form['reason'].strip()
-        if not is_valid_uuid(target_id):
-            abort(400)
         db = get_db(); cur = db.cursor()
         report_id = str(uuid.uuid4())
         cur.execute(
